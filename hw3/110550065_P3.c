@@ -15,14 +15,16 @@ public GitHub repository or a public web page.
 #include <string.h>
 
 sem_t jobSemaphore;  
-pthread_mutex_t jobMutex;  
-sem_t mergeSemaphore[16];
+pthread_mutex_t jobMutex;
+//pthread_mutex_t rdMutex;  
+//sem_t mergeSemaphore[16];
 //pthread_mutex_t arMutex;
 
 int jobQueue[20][3];
 int jobCount = 0;
 int n;
 int *array,*ar;
+int ready[14];
 
 void swap(int *a,int *b){
     int tmp=*a;
@@ -121,11 +123,19 @@ void *workerThread(){
         if(jobnum<8){
             //printf("%d\n",jobnum);
             bubblesort(start,end);
-            sem_post(&mergeSemaphore[jobnum]);
+            //sem_post(&mergeSemaphore[jobnum]);
+            //pthread_mutex_lock(&rdMutex);
+            ready[jobnum]=1;
+            //printf("bubble %d\n",jobnum);
+            //pthread_mutex_unlock(&rdMutex);
         }else{
             //printf("%d\n",jobnum);
             merge(start,end);//傳入第一個陣列的開始位置及結束位置
-            sem_post(&mergeSemaphore[jobnum]);
+            //sem_post(&mergeSemaphore[jobnum]);
+            //pthread_mutex_lock(&rdMutex);
+            ready[jobnum]=1;
+            //printf("merge %d\n",jobnum);
+            //pthread_mutex_unlock(&jobMutex);
         }
         /*for(int i=0;i<n;i++){
             printf("%d ",ar[i]);
@@ -171,11 +181,12 @@ int main(){
 
         sem_init(&jobSemaphore,0,0);
         pthread_mutex_init(&jobMutex,NULL);
+        //pthread_mutex_init(&rdMutex,NULL);
 
         
 
         for(int i=0;i<16;i++){//initialize sema
-            sem_init(&mergeSemaphore[i],0,0);
+            ready[i]=0;
         }
         int frac=n/8;
         for(int i=0;i<8;i++){
@@ -186,26 +197,41 @@ int main(){
         for(int i=0;i<num_thread;i++){
             pthread_create(&pthreads[i],NULL,workerThread,NULL);
         }
-
-        //1st
-        for(int i=0;i<=6;i=i+2){
-            sem_wait(&mergeSemaphore[i]);
-            sem_wait(&mergeSemaphore[i+1]);
-            addJob(8+(i/2),frac*i,frac*(i+1)-1);
+        while(1){
+            //printf("in here\n");
+            //1st
+            for(int i=0;i<=6;i=i+2){
+                //sem_wait(&mergeSemaphore[i]);
+                //sem_wait(&mergeSemaphore[i+1]);
+                if(ready[i]==1&&ready[i+1]==1){
+                    addJob(8+(i/2),frac*i,frac*(i+1)-1);
+                    ready[i]=0;ready[i+1]=0;
+                }
+            }
+            //2nd
+            for(int i=0;i<2;i++){
+                //sem_wait(&mergeSemaphore[8+2*i]);
+                //sem_wait(&mergeSemaphore[8+2*i+1]);
+                if(ready[8+2*i]==1&&ready[8+2*i+1]==1){
+                    addJob(12+i,4*i*frac,(4*i+2)*frac-1);
+                    ready[8+2*i]=0;ready[8+2*i+1]=0;
+                }
+            }
+            //3rd
+            //sem_wait(&mergeSemaphore[12]);
+            //sem_wait(&mergeSemaphore[13]);
+            if(ready[12]==1&&ready[13]==1){
+                addJob(14,0,(frac*4)-1);
+                ready[12]=0;ready[13]=0;
+            }
+            //sem_wait(&mergeSemaphore[14]);
+            //no job 
+            if(ready[14]==1){
+                addJob(15,4,5);
+                break;
+                //ready[14]=0;
+            }
         }
-        //2nd
-        for(int i=0;i<2;i++){
-            sem_wait(&mergeSemaphore[8+2*i]);
-            sem_wait(&mergeSemaphore[8+2*i+1]);
-            addJob(12+i,4*i*frac,(4*i+2)*frac-1);
-        }
-        //3rd
-        sem_wait(&mergeSemaphore[12]);
-        sem_wait(&mergeSemaphore[13]);
-        addJob(14,0,(frac*4)-1);
-        sem_wait(&mergeSemaphore[14]);
-        //no job 
-        addJob(15,4,5);
 
         /*for(int i=0;i<n;i++){
             printf("%d ",ar[i]);
