@@ -420,7 +420,9 @@ int main(int argc,char **argv){
                     use++;
                 }else{
                     //victim
-                    hash[tail->addr%frames].erase( remove( hash[tail->addr%frames].begin() , hash[tail->addr%frames].end() , make_pair(tail->addr,tail) ) );
+                    auto victim_val=make_pair(tail->addr,tail);
+                    auto &tg_hash=hash[tail->addr%frames];
+                    tg_hash.erase(remove(tg_hash.begin(),tg_hash.end(),victim_val),tg_hash.end());
                     tail=tail->prev;
                     tail->next=nullptr;
 
